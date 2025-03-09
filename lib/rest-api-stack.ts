@@ -55,6 +55,23 @@ export class RestAPIStack extends cdk.Stack {
         }
         );
 
+        //delete an item from table by id
+        const deleteMoviesFn = new lambdanode.NodejsFunction(
+          this,
+          "DeleteAllMoviesFn",
+          {
+            architecture: lambda.Architecture.ARM_64,
+            runtime: lambda.Runtime.NODEJS_18_X,
+            entry: `${__dirname}/../lambdas/deleteAllMovies.ts`,
+            timeout: cdk.Duration.seconds(10),
+            memorySize: 128,
+            environment: {
+              TABLE_NAME: moviesTable.tableName,
+              REGION: 'eu-west-1',
+            },
+          }
+          );
+
         const newMovieFn = new lambdanode.NodejsFunction(this, "AddMovieFn", {
           architecture: lambda.Architecture.ARM_64,
           runtime: lambda.Runtime.NODEJS_22_X,
@@ -66,6 +83,7 @@ export class RestAPIStack extends cdk.Stack {
             REGION: "eu-west-1",
           },
         });
+
         
         new custom.AwsCustomResource(this, "moviesddbInitData", {
           onCreate: {
@@ -87,6 +105,7 @@ export class RestAPIStack extends cdk.Stack {
         moviesTable.grantReadData(getMovieByIdFn)
         moviesTable.grantReadData(getAllMoviesFn)
         moviesTable.grantReadWriteData(newMovieFn)
+        moviesTable.grantReadWriteData(deleteMoviesFn)
         
         // REST API 
         const api = new apig.RestApi(this, "RestAPI", {
@@ -118,6 +137,12 @@ export class RestAPIStack extends cdk.Stack {
         specificMovieEndpoint.addMethod(
           "GET",
           new apig.LambdaIntegration(getMovieByIdFn, { proxy: true })
+        );
+
+        // DELETE
+        moviesEndpoint.addMethod(
+          "DELETE",
+          new apig.LambdaIntegration(deleteMoviesFn, { proxy: true })
         );
         
       }
